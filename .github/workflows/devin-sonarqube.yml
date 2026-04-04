@@ -1,0 +1,35 @@
+name: Devin - SonarQube Auto-Fix
+on:
+  workflow_dispatch:
+    inputs:
+      issue_key:
+        description: 'Chave do problema no SonarQube (ex: devportal-api:src/services/auth.service.ts)'
+        required: true
+        type: string
+      issue_message:
+        description: 'Descrição do problema identificado pelo SonarQube'
+        required: true
+        type: string
+      issue_severity:
+        description: 'Severidade do problema (BLOCKER, CRITICAL, MAJOR, MINOR, INFO)'
+        required: false
+        type: string
+        default: 'MAJOR'
+
+jobs:
+  trigger-devin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger Devin session para corrigir issue do SonarQube
+        env:
+          DEVIN_API_TOKEN: ${{ secrets.DEVIN_API_TOKEN }}
+        run: |
+          curl -X POST https://api.devin.ai/v1/sessions \
+            -H "Authorization: Bearer ${DEVIN_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"prompt\": \"SonarQube identificou um problema no devportal-api:\\n\\nChave: ${{ inputs.issue_key }}\\nSeveridade: ${{ inputs.issue_severity }}\\nDescrição: ${{ inputs.issue_message }}\\n\\nPor favor, corrija este problema seguindo as convenções do projeto definidas no AGENTS.md e REVIEW.md. Crie um PR com a correção.\",
+              \"repo\": \"joliveira-abaqus/devportal-api\"
+            }"

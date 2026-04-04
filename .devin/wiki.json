@@ -1,0 +1,9 @@
+{
+  "name": "devportal-api",
+  "description": "Backend API for DevPortal - a simplified Jira with integrated resolution pipeline",
+  "stack": ["Node.js", "Express", "TypeScript", "Prisma", "PostgreSQL", "Redis", "AWS S3", "AWS SQS"],
+  "entryPoint": "src/index.ts",
+  "testCommand": "npm test",
+  "buildCommand": "npm run build",
+  "lintCommand": "npm run lint"
+}

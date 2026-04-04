@@ -1,0 +1,22 @@
+name: Weekly Dependency Audit
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Segunda-feira às 9h UTC
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trigger Devin session for dependency audit
+        env:
+          DEVIN_API_TOKEN: ${{ secrets.DEVIN_API_TOKEN }}
+        run: |
+          curl -X POST https://api.devin.ai/v1/sessions \
+            -H "Authorization: Bearer ${DEVIN_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "prompt": "Run npm audit and npx snyk test on devportal-api. For every vulnerable or outdated dependency, open a PR updating it. Include test results in the PR description.",
+              "repo": "joliveira-abaqus/devportal-api"
+            }'

@@ -1,0 +1,47 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  requests     Request[]
+
+  @@map("users")
+}
+
+model Request {
+  id           String         @id @default(uuid())
+  title        String
+  description  String
+  type         String
+  status       String         @default("pending")
+  prUrl        String?        @map("pr_url")
+  attachmentS3 String?        @map("attachment_s3")
+  authorId     String         @map("author_id")
+  author       User           @relation(fields: [authorId], references: [id])
+  events       RequestEvent[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@map("requests")
+}
+
+model RequestEvent {
+  id        String   @id @default(uuid())
+  requestId String   @map("request_id")
+  request   Request  @relation(fields: [requestId], references: [id])
+  eventType String   @map("event_type")
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("request_events")
+}
