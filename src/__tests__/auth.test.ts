@@ -1,4 +1,5 @@
 import request from 'supertest';
+import bcrypt from 'bcryptjs';
 import app from '../app';
 import prisma from '../config/database';
 
@@ -108,6 +109,49 @@ describe('Auth Routes', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('deve fazer login com sucesso e retornar dados do usuário com cookie', async () => {
+      const passwordHash = await bcrypt.hash('SenhaForte123!', 10);
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-login-id',
+        email: 'login@devportal.local',
+        name: 'Usuário Login',
+        passwordHash,
+        createdAt: new Date(),
+      });
+
+      const res = await request(app).post('/auth/login').send({
+        email: 'login@devportal.local',
+        password: 'SenhaForte123!',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveProperty('id', 'user-login-id');
+      expect(res.body.data).toHaveProperty('email', 'login@devportal.local');
+      expect(res.body.data).toHaveProperty('name', 'Usuário Login');
+      expect(res.headers['set-cookie']).toBeDefined();
+      const cookies = res.headers['set-cookie'] as unknown as string[];
+      expect(cookies.some((c: string) => c.startsWith('token='))).toBe(true);
+    });
+
+    it('deve retornar 401 com senha incorreta', async () => {
+      const passwordHash = await bcrypt.hash('SenhaCorreta123!', 10);
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-wrong-pw',
+        email: 'wrong@devportal.local',
+        name: 'Usuário Senha Errada',
+        passwordHash,
+        createdAt: new Date(),
+      });
+
+      const res = await request(app).post('/auth/login').send({
+        email: 'wrong@devportal.local',
+        password: 'SenhaErrada999!',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
     });
   });
 
