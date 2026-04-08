@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { ZodError, ZodIssue, z } from 'zod';
+import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { errorMiddleware, AppError } from '../middleware/error.middleware';
 import { validate } from '../middleware/validate.middleware';
