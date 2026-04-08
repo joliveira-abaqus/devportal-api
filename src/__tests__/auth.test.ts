@@ -1,4 +1,6 @@
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import app from '../app';
 import prisma from '../config/database';
 
@@ -109,6 +111,47 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
+
+    it('deve fazer login com sucesso e setar cookie token', async () => {
+      const hashedPassword = await bcrypt.hash('SenhaForte123!', 10);
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-login-id',
+        email: 'login@devportal.local',
+        name: 'Login User',
+        passwordHash: hashedPassword,
+        createdAt: new Date(),
+      });
+
+      const res = await request(app).post('/auth/login').send({
+        email: 'login@devportal.local',
+        password: 'SenhaForte123!',
+      });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveProperty('id', 'user-login-id');
+      expect(res.body.data).toHaveProperty('email', 'login@devportal.local');
+      expect(res.headers['set-cookie']).toBeDefined();
+      expect(res.headers['set-cookie'][0]).toContain('token=');
+    });
+
+    it('deve retornar 401 com senha incorreta', async () => {
+      const hashedPassword = await bcrypt.hash('SenhaCorreta123!', 10);
+      (mockPrisma.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-wrong-pass',
+        email: 'user@devportal.local',
+        name: 'User',
+        passwordHash: hashedPassword,
+        createdAt: new Date(),
+      });
+
+      const res = await request(app).post('/auth/login').send({
+        email: 'user@devportal.local',
+        password: 'SenhaErrada123!',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
+    });
   });
 
   describe('POST /auth/logout', () => {
@@ -118,5 +161,55 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.message).toBe('Logout realizado com sucesso.');
     });
+  });
+});
+
+describe('Auth Middleware', () => {
+  const JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
+
+  it('deve retornar 401 quando não há cookie token', async () => {
+    const res = await request(app).get('/requests');
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('deve retornar 401 quando o token está expirado', async () => {
+    const expiredToken = jwt.sign(
+      { userId: 'user-id', email: 'test@devportal.local' },
+      JWT_SECRET,
+      { expiresIn: '0s' },
+    );
+
+    const res = await request(app)
+      .get('/requests')
+      .set('Cookie', `token=${expiredToken}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('deve retornar 401 quando o token tem assinatura inválida (JWT_SECRET diferente)', async () => {
+    const invalidToken = jwt.sign(
+      { userId: 'user-id', email: 'test@devportal.local' },
+      'secret-diferente-invalida',
+      { expiresIn: '1h' },
+    );
+
+    const res = await request(app)
+      .get('/requests')
+      .set('Cookie', `token=${invalidToken}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
+  });
+
+  it('deve retornar 401 quando o token é malformado (string aleatória)', async () => {
+    const res = await request(app)
+      .get('/requests')
+      .set('Cookie', 'token=string-aleatoria-nao-jwt');
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHORIZED');
   });
 });
