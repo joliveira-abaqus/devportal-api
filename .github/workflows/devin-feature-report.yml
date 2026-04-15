@@ -1,0 +1,58 @@
+name: Devin - Relatório de Feature Branch
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+
+jobs:
+  feature-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extrair informações do commit e da branch
+        id: info
+        run: |
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          COMMIT_SHA="${GITHUB_SHA}"
+          COMMIT_AUTHOR=$(git log -1 --format='%an')
+          COMMIT_EMAIL=$(git log -1 --format='%ae')
+          COMMIT_DATE=$(git log -1 --format='%ci')
+          COMMIT_MESSAGE=$(git log -1 --format='%s')
+
+          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+          echo "sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "author=$COMMIT_AUTHOR" >> "$GITHUB_OUTPUT"
+          echo "email=$COMMIT_EMAIL" >> "$GITHUB_OUTPUT"
+          echo "date=$COMMIT_DATE" >> "$GITHUB_OUTPUT"
+          echo "message=$COMMIT_MESSAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Criar sessão Devin para gerar relatório
+        env:
+          DEVIN_API_TOKEN: ${{ secrets.DEVIN_API_TOKEN }}
+        run: |
+          PROMPT="Gere um relatório de feature branch com os seguintes dados:
+          - REPO: ${{ github.repository }}
+          - BRANCH: ${{ steps.info.outputs.branch }}
+          - AUTHOR: ${{ steps.info.outputs.author }}
+          - AUTHOR_EMAIL: ${{ steps.info.outputs.email }}
+          - COMMIT_DATE: ${{ steps.info.outputs.date }}
+          - COMMIT_SHA: ${{ steps.info.outputs.sha }}
+          - COMMIT_MESSAGE: ${{ steps.info.outputs.message }}
+
+          Analise a branch comparando com main e gere o relatório completo conforme o playbook."
+
+          curl -s -X POST "https://api.devinenterprise.com/v1/sessions" \
+            -H "Authorization: Bearer ${DEVIN_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg prompt "$PROMPT" \
+              --arg playbook_id "playbook-3ee429f8cb4f4b7bad445f439fc91c2e" \
+              '{
+                "prompt": $prompt,
+                "playbook_id": $playbook_id
+              }'
+            )"
