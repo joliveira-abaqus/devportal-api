@@ -20,7 +20,7 @@ interface RequestMessage {
   authorId: string;
 }
 
-async function processMessage(message: Message): Promise<void> {
+export async function processMessage(message: Message): Promise<void> {
   if (!message.Body) {
     console.warn('Mensagem SQS sem body, ignorando.');
     return;
@@ -63,7 +63,7 @@ async function processMessage(message: Message): Promise<void> {
   console.info(`Solicitação ${payload.requestId} processada com sucesso.`);
 }
 
-async function pollMessages(): Promise<void> {
+export async function pollMessages(): Promise<void> {
   const command = new ReceiveMessageCommand({
     QueueUrl: SQS_QUEUE_URL,
     MaxNumberOfMessages: 10,
@@ -97,7 +97,7 @@ async function pollMessages(): Promise<void> {
   }
 }
 
-async function startWorker(): Promise<void> {
+export async function startWorker(): Promise<void> {
   console.info('Worker de processamento de solicitações iniciado.');
   console.info(`Polling da fila: ${SQS_QUEUE_URL}`);
 
@@ -107,7 +107,10 @@ async function startWorker(): Promise<void> {
   }
 }
 
-startWorker().catch((err) => {
-  console.error('Erro fatal no worker:', err);
-  process.exit(1);
-});
+// Inicia o worker apenas quando executado diretamente
+if (require.main === module) {
+  startWorker().catch((err) => {
+    console.error('Erro fatal no worker:', err);
+    process.exit(1);
+  });
+}
